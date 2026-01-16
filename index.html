@@ -3,19 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Empresa</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <title>Mi PWA de Registro</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        .hidden { display: none; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        select, input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        video { width: 100%; border-radius: 10px; background: black; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Escáner de Códigos</h1>
-        <div id="reader"></div>
-        <div id="result">
-            <p>Esperando lectura...</p>
-        </div>
+
+    <div id="pantalla-inicio" class="card">
+        <h2>Gestión de Locales</h2>
+        
+        <label for="lista-locales">Selecciona un establecimiento:</label>
+        <select id="lista-locales">
+            <option value="">-- Buscar existente --</option>
+        </select>
+
+        <p>O agrega uno nuevo:</p>
+        <input type="text" id="nuevo-local" placeholder="Nombre del establecimiento">
+        <button onclick="guardarYContinuar()">Confirmar y Abrir Cámara</button>
     </div>
-    <script src="app.js"></script>
+
+    <div id="pantalla-camara" class="hidden">
+        <h3 id="nombre-seleccionado"></h3>
+        <video id="video" autoplay playsinline></video>
+        <button style="background-color: #dc3545;" onclick="cerrarCamara()">Volver</button>
+    </div>
+
+    <script>
+        let locales = JSON.parse(localStorage.getItem('misLocales')) || [];
+        const videoElement = document.getElementById('video');
+        let streamActual = null;
+
+        // Carga los locales guardados al iniciar
+        function cargarLocales() {
+            const select = document.getElementById('lista-locales');
+            select.innerHTML = '<option value="">-- Buscar existente --</option>';
+            locales.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = loc;
+                select.appendChild(opt);
+            });
+        }
+
+        async function guardarYContinuar() {
+            const inputNuevo = document.getElementById('nuevo-local').value;
+            const selectExistente = document.getElementById('lista-locales').value;
+            let localElegido = "";
+
+            if (inputNuevo) {
+                localElegido = inputNuevo;
+                if (!locales.includes(localElegido)) {
+                    locales.push(localElegido);
+                    localStorage.setItem('misLocales', JSON.stringify(locales));
+                }
+            } else if (selectExistente) {
+                localElegido = selectExistente;
+            } else {
+                alert("Por favor, selecciona o escribe un nombre.");
+                return;
+            }
+
+            document.getElementById('nombre-seleccionado').textContent = "Local: " + localElegido;
+            iniciarCamara();
+        }
+
+        async function iniciarCamara() {
+            const constraints = {
+                video: { facingMode: "environment" } // Obliga a usar la cámara trasera
+            };
+
+            try {
+                streamActual = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = streamActual;
+                
+                document.getElementById('pantalla-inicio').classList.add('hidden');
+                document.getElementById('pantalla-camara').classList.remove('hidden');
+            } catch (err) {
+                alert("Error al acceder a la cámara trasera: " + err.message);
+            }
+        }
+
+        function cerrarCamara() {
+            if (streamActual) {
+                streamActual.getTracks().forEach(track => track.stop());
+            }
+            document.getElementById('pantalla-inicio').classList.remove('hidden');
+            document.getElementById('pantalla-camara').classList.add('hidden');
+            cargarLocales();
+        }
+
+        // Iniciar lista al cargar
+        cargarLocales();
+    </script>
 </body>
 </html>
